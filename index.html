@@ -2,8 +2,10 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>maggie的笔记本</title>
+  <title>中文记事本</title>
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     #editor {
       height: 500px;
@@ -17,6 +19,18 @@
       font-family: "Microsoft YaHei", sans-serif;
       font-size: 16px;
       color: #333;
+    }
+    #exportBtn {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #exportBtn:hover {
+      background-color: #1976d2;
     }
   </style>
 </head>
@@ -55,65 +69,34 @@
   </div>
 
   <div id="editor"></div>
+  <button id="exportBtn">📄 导出为 PDF</button>
 
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   <script>
-    const Clipboard = Quill.import('modules/clipboard');
-    const Delta = Quill.import('delta');
-
-    class CustomClipboard extends Clipboard {
-      async onPaste(e) {
-        e.preventDefault();
-
-        const html = e.clipboardData.getData('text/html');
-        const text = e.clipboardData.getData('text/plain');
-        let container = document.createElement('div');
-
-        if (html) {
-          container.innerHTML = html;
-        } else {
-          container.textContent = text;
-        }
-
-        // 只替换 the ... solid-state 中的所有$
-        const walker = document.createTreeWalker(
-          container,
-          NodeFilter.SHOW_TEXT,
-          null,
-          false
-        );
-
-        while (walker.nextNode()) {
-          let node = walker.currentNode;
-          // 用正则查找所有 the ... solid-state 片段
-          node.nodeValue = node.nodeValue.replace(/(the[\s\S]*?solid-state)/gi, (match) => {
-            return match.replace(/\$/g, '87Rb');
-          });
-        }
-
-        const delta = this.convert(container.innerHTML);
-        const range = this.quill.getSelection(true);
-
-        this.quill.updateContents(
-          new Delta().retain(range.index).concat(delta),
-          'user'
-        );
-
-        this.quill.setSelection(range.index + delta.length(), 0, 'silent');
-      }
-    }
-
-    Quill.register('modules/clipboard', CustomClipboard, true);
-
     const quill = new Quill('#editor', {
       theme: 'snow',
       modules: {
-        toolbar: '#toolbar',
-        clipboard: true
+        toolbar: '#toolbar'
       }
     });
 
     quill.root.innerHTML = '<p>欢迎使用maggie文本框！</p>';
+
+    document.getElementById('exportBtn').addEventListener('click', async () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      await html2canvas(document.querySelector(".ql-editor"), {
+        scale: 2
+      }).then(canvas => {
+        const imgData = canvas.toDataURL("image/png");
+        const imgProps = doc.getImageProperties(imgData);
+        const pdfWidth = doc.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        doc.save("note.pdf");
+      });
+    });
   </script>
 </body>
 </html>
